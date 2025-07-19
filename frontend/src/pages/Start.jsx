@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useInterview } from '../context/InterviewContext';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 function Start() {
   const [questions, setQuestions] = useState([]);
@@ -21,25 +24,30 @@ function Start() {
   const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['interview', formData],
     queryFn: async () => {
-      const response = await fetch("http://localhost:5000/api/interview/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          domain: formData?.domain,
-          level: formData?.level,
-          numQuestions: formData?.questions,
-        }),
-      });
+      try {
+        const response = await fetch("http://localhost:5000/api/interview/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            domain: formData?.domain,
+            level: formData?.level,
+            numQuestions: formData?.questions,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch interview questions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch interview questions');
+        }
+
+        return response.json();
+      } catch (err) {
+        throw new Error(err.message || 'Network error occurred');
       }
-
-      return response.json();
     },
     enabled: !!formData,
+    retry: 2, // Retry twice before failing
   });
 
   useEffect(() => {
@@ -76,6 +84,7 @@ function Start() {
     } else if (queryError) {
       setError(queryError.message);
       setLoading(false);
+      console.error('Query Error:', queryError);
     }
   }, [data, queryError]);
 
@@ -96,43 +105,35 @@ function Start() {
   };
 
   const handleSubmit = async () => {
-    if (submitted) return;
+    if (submitted || !questions.length) return;
     setSubmitted(true);
 
-    let score = 0;
-    const userAnswers = [];
-
-    questions.forEach((q) => {
-      const id = q.id || q._id;
-      const selected = answers[id]?.selectedOption;
-      const isCorrect = selected === q.answer;
-      if (isCorrect) score++;
-
-      userAnswers.push({
-        question: q.question,
-        selectedAnswer: selected || "Not Answered",
-        correctAnswer: q.answer,
-        isCorrect,
-        timestamp: answers[id]?.timestamp,
-      });
-    });
-
-    setInterviewData({
-      ...formData,
-      questions,
-      answers: userAnswers,
-    });
-
-    setScore(score);
-
     try {
-      console.log("Submitting to backend:", {
-        sessionId: formData.sessionId,
-        answers: userAnswers,
-        metadata: formData
+      let score = 0;
+      const userAnswers = questions.map((q) => {
+        const id = q.id || q._id;
+        const selected = answers[id]?.selectedOption;
+        const isCorrect = selected === q.answer;
+        if (isCorrect) score++;
+
+        return {
+          question: q.question,
+          selectedAnswer: selected || "Not Answered",
+          correctAnswer: q.answer,
+          isCorrect,
+          timestamp: answers[id]?.timestamp,
+        };
       });
 
-      const res = await fetch("http://localhost:5000/api/storeResponses", {
+      setInterviewData({
+        ...formData,
+        questions,
+        answers: userAnswers,
+      });
+
+      setScore(score);
+
+      const response = await fetch("http://localhost:5000/api/storeResponses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -144,17 +145,17 @@ function Start() {
         }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("Backend error:", errText);
-        throw new Error("Failed to store responses");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to store responses');
       }
-    } catch (err) {
-      console.error("Failed to store responses:", err);
-      setError("Failed to submit your answers. Please try again.");
-    }
 
-    navigate('/result');
+      navigate('/result');
+    } catch (err) {
+      console.error("Submission Error:", err);
+      setError(err.message || "Failed to submit your answers. Please try again.");
+      setSubmitted(false); // Allow retry if submission fails
+    }
   };
 
   const formatTime = (seconds) => {
@@ -165,11 +166,39 @@ function Start() {
 
   if (loading || isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-100">
-        <div className="text-center bg-white p-8 rounded-lg shadow-md w-[90%] max-w-md">
-          <h2 className="text-3xl font-bold text-blue-600 mb-4">Loading Interview...</h2>
-          <p>Loading questions...</p>
-        </div>
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 dark:border-gray-800"
+        >
+          <h2 className="text-2xl font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Preparing Your Interview
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Generating tailored questions...
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 dark:border-gray-800"
+        >
+          <h2 className="text-2xl font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Error Loading Interview
+          </h2>
+          <p className="text-red-600 dark:text-red-400 mb-6">{error}</p>
+          <Button onClick={() => navigate('/setup')}>
+            Return to Setup
+          </Button>
+        </motion.div>
       </div>
     );
   }
@@ -177,98 +206,92 @@ function Start() {
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100 overflow-y-auto transition-opacity duration-500">
-      <div className="text-center bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
-        <h2 className="text-3xl font-bold text-blue-600 mb-4">Interview in Progress...</h2>
-
-        <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-          <div
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-            style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-          />
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-2xl bg-white dark:bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-6"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100">
+              {formData.domain}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {formData.level} • {formData.questions} questions
+            </p>
+          </div>
+          <div className="bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full">
+            <span className="text-red-600 dark:text-red-400 font-medium">
+              {formatTime(timeLeft)}
+            </span>
+          </div>
         </div>
-        <p className="text-sm text-gray-600 mb-2">
-          Question {currentQuestionIndex + 1} of {questions.length}
-        </p>
 
-        <div className="flex flex-col items-center mb-4">
-          <p className="text-lg text-gray-700 mb-2"><strong>Domain:</strong> {formData.domain}</p>
-          <p className="text-lg text-gray-700 mb-2"><strong>Questions:</strong> {formData.questions}</p>
-          <p className="text-lg text-gray-700 mb-2"><strong>Difficulty:</strong> {formData.level}</p>
-          <p className="text-lg text-gray-700 mb-2"><strong>Time:</strong> {formData.timer} minute(s)</p>
-          <p className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded-full mb-2">
-            Time Left: {formatTime(timeLeft)}
+        <Progress 
+          value={((currentQuestionIndex + 1) / questions.length) * 100} 
+          className="h-2 mb-6"
+        />
+
+        <div className="mb-8">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+            Question {currentQuestionIndex + 1} of {questions.length}
           </p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            {currentQuestion?.question}
+          </h3>
+
+          <ul className="space-y-3">
+            {currentQuestion?.options?.map((opt, i) => (
+              <li key={i}>
+                <button
+                  onClick={() => handleOptionChange(currentQuestion.id, opt)}
+                  className={`w-full text-left p-4 rounded-lg border transition-all ${
+                    answers[currentQuestion.id]?.selectedOption === opt
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {opt}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <h3 className="mt-4 text-xl font-bold">Interview Questions:</h3>
-        <ul className="mt-4 text-left">
-          {currentQuestion && (
-            <li key={currentQuestion.id || currentQuestion._id} className="mb-4">
-              <p className="font-semibold text-black dark:text-white mb-2">{currentQuestionIndex + 1}. {currentQuestion.question}</p>
-              <ul className="space-y-2">
-                {currentQuestion.options?.length > 0 ? (
-                  currentQuestion.options.map((opt, i) => (
-                    <li key={i}>
-                      <label className={`block p-3 border rounded-lg cursor-pointer transition ${answers[currentQuestion.id]?.selectedOption === opt ? 'bg-blue-100 border-blue-500 text-blue-700 font-semibold' : 'bg-white hover:bg-gray-100'}`}>
-                        <input
-                          type="radio"
-                          name={`question-${currentQuestion.id}`}
-                          value={opt}
-                          onChange={() => handleOptionChange(currentQuestion.id, opt)}
-                          className="mr-2"
-                          checked={answers[currentQuestion.id]?.selectedOption === opt}
-                        />
-                        {opt}
-                      </label>
-                    </li>
-                  ))
-                ) : (
-                  <li>
-                    <input
-                      type="text"
-                      placeholder="Type your answer here"
-                      value={answers[currentQuestion.id]?.selectedOption || ''}
-                      onChange={(e) => handleOptionChange(currentQuestion.id, e.target.value)}
-                      className="w-full p-2 border rounded"
-                    />
-                  </li>
-                )}
-              </ul>
-            </li>
-          )}
-        </ul>
-
-        <div className="flex justify-between mt-6">
-          {currentQuestionIndex > 0 && (
-            <button
-              onClick={handlePrevious}
-              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition"
-            >
-              Previous
-            </button>
-          )}
-          <div className="flex-grow"></div>
-          {currentQuestionIndex < questions.length - 1 && (
-            <button
+        <div className="flex justify-between">
+          <Button
+            onClick={handlePrevious}
+            variant="outline"
+            disabled={currentQuestionIndex === 0}
+            className="min-w-[120px]"
+          >
+            Previous
+          </Button>
+          {currentQuestionIndex < questions.length - 1 ? (
+            <Button 
               onClick={handleNext}
-              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition"
+              className="min-w-[120px]"
             >
               Next
-            </button>
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleSubmit}
+              className="min-w-[120px]"
+              disabled={submitted}
+            >
+              {submitted ? 'Submitting...' : 'Submit Interview'}
+            </Button>
           )}
         </div>
 
-        <button
-          onClick={handleSubmit}
-          className="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
-          Submit
-        </button>
-
-        {error && <p className="text-red-600 mt-4">{error}</p>}
-        <p className="mt-6 text-gray-500 text-sm">Redirecting to results after interview ends...</p>
-      </div>
+        {error && (
+          <div className="mt-4 text-red-600 dark:text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }
