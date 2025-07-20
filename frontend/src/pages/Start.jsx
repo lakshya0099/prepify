@@ -24,7 +24,7 @@ function Start() {
   const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['interview', formData],
     queryFn: async () => {
-      const response = await fetch("http://localhost:5000/api/interview/generate", {
+      const response = await fetch("https://prepify-8a12.onrender.com/api/interview/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

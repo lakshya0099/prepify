@@ -23,7 +23,7 @@ function AnalysisReport() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch("http://localhost:5000/api/analysis", {
+        const response = await fetch("https://prepify-8a12.onrender.com/api/analysis", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
