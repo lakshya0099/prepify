@@ -126,7 +126,7 @@ function Start() {
 
       setScore(score);
 
-      const response = await fetch("https://prepify-8a12.onrender.com/:5000/api/storeResponses", {
+      const response = await fetch("https://prepify-8a12.onrender.com/api/storeResponses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
