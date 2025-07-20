@@ -24,30 +24,20 @@ function Start() {
   const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['interview', formData],
     queryFn: async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/interview/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            domain: formData?.domain,
-            level: formData?.level,
-            numQuestions: formData?.questions,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch interview questions');
-        }
-
-        return response.json();
-      } catch (err) {
-        throw new Error(err.message || 'Network error occurred');
-      }
+      const response = await fetch("http://localhost:5000/api/interview/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: formData?.domain,
+          level: formData?.level,
+          numQuestions: formData?.questions,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to fetch interview questions");
+      return response.json();
     },
     enabled: !!formData,
-    retry: 2, // Retry twice before failing
+    retry: 2,
   });
 
   useEffect(() => {
@@ -55,8 +45,7 @@ function Start() {
       navigate('/setup');
       return;
     }
-
-    if (formData?.sessionId) {
+    if (formData.sessionId) {
       localStorage.setItem('sessionId', formData.sessionId);
     }
 
@@ -84,7 +73,6 @@ function Start() {
     } else if (queryError) {
       setError(queryError.message);
       setLoading(false);
-      console.error('Query Error:', queryError);
     }
   }, [data, queryError]);
 
@@ -122,6 +110,11 @@ function Start() {
           correctAnswer: q.answer,
           isCorrect,
           timestamp: answers[id]?.timestamp,
+
+          // 🧠 For analysis
+          topic: q.topic || formData.domain,
+          type: q.type || "MCQ",
+          difficulty: q.difficulty || formData.level,
         };
       });
 
@@ -135,13 +128,11 @@ function Start() {
 
       const response = await fetch("http://localhost:5000/api/storeResponses", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: formData.sessionId,
           answers: userAnswers,
-          metadata: formData
+          metadata: formData,
         }),
       });
 
@@ -154,7 +145,7 @@ function Start() {
     } catch (err) {
       console.error("Submission Error:", err);
       setError(err.message || "Failed to submit your answers. Please try again.");
-      setSubmitted(false); // Allow retry if submission fails
+      setSubmitted(false);
     }
   };
 
@@ -175,9 +166,7 @@ function Start() {
           <h2 className="text-2xl font-medium text-gray-900 dark:text-gray-100 mb-4">
             Preparing Your Interview
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Generating tailored questions...
-          </p>
+          <p className="text-gray-600 dark:text-gray-400">Generating tailored questions...</p>
         </motion.div>
       </div>
     );
@@ -195,9 +184,7 @@ function Start() {
             Error Loading Interview
           </h2>
           <p className="text-red-600 dark:text-red-400 mb-6">{error}</p>
-          <Button onClick={() => navigate('/setup')}>
-            Return to Setup
-          </Button>
+          <Button onClick={() => navigate('/setup')}>Return to Setup</Button>
         </motion.div>
       </div>
     );
@@ -214,9 +201,7 @@ function Start() {
       >
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100">
-              {formData.domain}
-            </h2>
+            <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100">{formData.domain}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {formData.level} • {formData.questions} questions
             </p>
@@ -228,10 +213,7 @@ function Start() {
           </div>
         </div>
 
-        <Progress 
-          value={((currentQuestionIndex + 1) / questions.length) * 100} 
-          className="h-2 mb-6"
-        />
+        <Progress value={((currentQuestionIndex + 1) / questions.length) * 100} className="h-2 mb-6" />
 
         <div className="mb-8">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
@@ -260,36 +242,20 @@ function Start() {
         </div>
 
         <div className="flex justify-between">
-          <Button
-            onClick={handlePrevious}
-            variant="outline"
-            disabled={currentQuestionIndex === 0}
-            className="min-w-[120px]"
-          >
+          <Button onClick={handlePrevious} variant="outline" disabled={currentQuestionIndex === 0}>
             Previous
           </Button>
           {currentQuestionIndex < questions.length - 1 ? (
-            <Button 
-              onClick={handleNext}
-              className="min-w-[120px]"
-            >
-              Next
-            </Button>
+            <Button onClick={handleNext}>Next</Button>
           ) : (
-            <Button 
-              onClick={handleSubmit}
-              className="min-w-[120px]"
-              disabled={submitted}
-            >
+            <Button onClick={handleSubmit} disabled={submitted}>
               {submitted ? 'Submitting...' : 'Submit Interview'}
             </Button>
           )}
         </div>
 
         {error && (
-          <div className="mt-4 text-red-600 dark:text-red-400 text-sm">
-            {error}
-          </div>
+          <div className="mt-4 text-red-600 dark:text-red-400 text-sm">{error}</div>
         )}
       </motion.div>
     </div>

@@ -10,7 +10,7 @@ router.post('/analysis', async (req, res) => {
     return res.status(400).json({ message: 'Session ID is required' });
   }
 
-  console.log("Requested sessionId:", sessionId); // For debugging
+  console.log("Requested sessionId:", sessionId);
 
   try {
     const db = await connectToDatabase();
@@ -22,22 +22,43 @@ router.post('/analysis', async (req, res) => {
       return res.status(404).json({ message: 'No responses found for this sessionId' });
     }
 
-    const analysisReport = responses.map(response => {
-      const answers = response.answers || [];
-      const correctAnswers = answers.filter(answer => answer.isCorrect).length;
-      const totalQuestions = answers.length;
-      const scorePercentage = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+    const allAnswers = responses.flatMap(r => r.answers || []);
 
-      return {
-        sessionId: response.sessionId,
-        correctAnswers,
-        totalQuestions,
-        scorePercentage,
-        responses: answers,
-      };
-    });
+    const correctAnswers = allAnswers.filter(a => a.isCorrect).length;
+    const totalQuestions = allAnswers.length;
+    const scorePercentage = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
 
-    res.status(200).json({ analysisReport });
+    const incorrectAnswers = allAnswers.filter(a => !a.isCorrect);
+
+    // ✅ Breakdown objects
+    const topicBreakdown = {};
+    const typeBreakdown = {};
+    const difficultyBreakdown = {};
+
+incorrectAnswers.forEach(ans => {
+  // Now access the nested question object
+  const topic = ans.question?.topic || 'Untagged';
+  const type = ans.question?.type || 'Unknown';
+  const difficulty = ans.question?.difficulty || 'Unknown';
+
+  topicBreakdown[topic] = (topicBreakdown[topic] || 0) + 1;
+  typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+  difficultyBreakdown[difficulty] = (difficultyBreakdown[difficulty] || 0) + 1;
+});
+
+    const analysisReport = {
+      sessionId,
+      correctAnswers,
+      totalQuestions,
+      scorePercentage,
+      topicBreakdown,
+      typeBreakdown,
+      difficultyBreakdown,
+      responses: allAnswers,
+    };
+
+    res.status(200).json({ analysisReport,incorrectAnswers });
+
   } catch (error) {
     console.error("Error generating analysis report:", error);
     res.status(500).json({ message: 'Failed to generate analysis report', error });

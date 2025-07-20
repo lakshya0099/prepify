@@ -56,7 +56,7 @@ function Home() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 py-20">
           <div className="text-center">
             {/* Badge */}
-            <div className={`inline-flex items-center px-4 py-2 rounded-full mb-8 ${
+            {/* <div className={`inline-flex items-center px-4 py-2 rounded-full mb-8 ${
               theme === 'dark' 
                 ? 'bg-slate-800/60 border border-slate-700 text-slate-300' 
                 : 'bg-white/60 border border-slate-200 text-slate-600'
@@ -65,7 +65,7 @@ function Home() {
             }`}>
               <Award className="w-4 h-4 mr-2 text-amber-500" />
               <span className="text-sm font-medium">Trusted by Fortune 500 Companies</span>
-            </div>
+            </div> */}
 
             {/* Main Heading */}
             <h1 className={`text-5xl md:text-7xl font-bold mb-6 leading-tight transition-all duration-700 transform ${
@@ -98,7 +98,7 @@ function Home() {
             </div>
 
             {/* Stats */}
-            <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto transition-all duration-700 delay-400 transform ${
+            {/* <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto transition-all duration-700 delay-400 transform ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               {stats.map((stat, index) => (
@@ -115,7 +115,7 @@ function Home() {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -187,18 +187,13 @@ function Home() {
               </span>
             </div>
             
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <span className={`text-sm ${
-                theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
-              }`}>
-                4.9/5 from 10,000+ professionals
-              </span>
-            </div>
+ <div className="flex items-center space-x-2">
+  <Users className="w-4 h-4 text-green-500" />
+  <span className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+    Your trusted companion for interview success
+  </span>
+</div>
+ 
           </div>
           
           <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700 text-center">

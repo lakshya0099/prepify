@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, TrendingUp, Award, AlertCircle, Moon, Sun } from 'lucide-react';
+import { FileText, TrendingUp, Award, AlertCircle, Moon, Sun, BookOpen, Clock, AlertTriangle, Target } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
 function AnalysisReport() {
-  const { theme, toggleTheme } = useTheme(); // ✅ use toggleTheme
+  const { theme, toggleTheme } = useTheme();
   const [report, setReport] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [weakAreas, setWeakAreas] = useState(null);
 
   const sessionId = localStorage.getItem("sessionId");
 
@@ -35,18 +36,92 @@ function AnalysisReport() {
         }
 
         const data = await response.json();
-        setReport(data.analysisReport);
+        
+        // Ensure report is always an array
+        const reportData = Array.isArray(data.analysisReport) 
+          ? data.analysisReport 
+          : data.analysisReport 
+            ? [data.analysisReport] 
+            : [];
+        
+        setReport(reportData);
+        
+        // Analyze incorrect answers if available
+        if (data.incorrectAnswers) {
+          analyzeWeakAreas(data.incorrectAnswers);
+        }
+        
         setLoading(false);
 
       } catch (error) {
         console.error("Failed to fetch analysis report:", error);
         setError(error.message);
         setLoading(false);
+        setReport([]); // Reset to empty array on error
       }
     };
 
     fetchReport();
   }, [sessionId]);
+
+  // Safe calculation functions
+  const calculateTotalQuestions = () => {
+    return report?.reduce((sum, item) => sum + (item?.totalQuestions || 0), 0) || 0;
+  };
+
+  const calculateTotalCorrect = () => {
+    return report?.reduce((sum, item) => sum + (item?.correctAnswers || 0), 0) || 0;
+  };
+
+  const calculateOverallPercentage = () => {
+    const totalQuestions = calculateTotalQuestions();
+    return totalQuestions > 0 ? Math.round((calculateTotalCorrect() / totalQuestions) * 100) : 0;
+  };
+
+  const analyzeWeakAreas = (incorrectAnswers) => {
+    if (!incorrectAnswers || !Array.isArray(incorrectAnswers)) return;
+
+    // 1. Weak Topic Identification
+    const weakTopics = incorrectAnswers.reduce((acc, answer) => {
+      const topic = answer?.question?.topic || 'Untagged';
+      acc[topic] = (acc[topic] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 2. Question Type Analysis
+    const incorrectByType = incorrectAnswers.reduce((acc, answer) => {
+      const type = answer?.question?.type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    // 3. Time Analysis (if time data is available)
+    const timeDataAvailable = incorrectAnswers.some(a => a?.timeSpent !== undefined);
+    let avgTimeOnIncorrect = null;
+    if (timeDataAvailable) {
+      avgTimeOnIncorrect = incorrectAnswers.reduce((sum, answer) => {
+        return sum + (answer?.timeSpent || 0);
+      }, 0) / incorrectAnswers.length;
+    }
+
+    // 4. Difficulty Level Breakdown
+    const incorrectByDifficulty = incorrectAnswers.reduce((acc, answer) => {
+      const level = answer?.question?.difficulty || 'Medium';
+      acc[level] = (acc[level] || 0) + 1;
+      return acc;
+    }, {});
+
+    setWeakAreas({
+      topics: Object.entries(weakTopics)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5),
+      types: Object.entries(incorrectByType)
+        .sort((a, b) => b[1] - a[1]),
+      avgTime: avgTimeOnIncorrect,
+      difficulties: Object.entries(incorrectByDifficulty)
+        .sort((a, b) => b[1] - a[1])
+    });
+  };
 
   const getScoreColor = (percentage) => {
     if (percentage >= 90) return 'text-emerald-600 dark:text-emerald-400';
@@ -108,9 +183,9 @@ function AnalysisReport() {
     );
   }
 
-  const totalQuestions = report.reduce((sum, item) => sum + item.totalQuestions, 0);
-  const totalCorrect = report.reduce((sum, item) => sum + item.correctAnswers, 0);
-  const overallPercentage = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  const totalQuestions = calculateTotalQuestions();
+  const totalCorrect = calculateTotalCorrect();
+  const overallPercentage = calculateOverallPercentage();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-gray-950 py-12 px-4 text-slate-800 dark:text-slate-100">
@@ -148,6 +223,93 @@ function AnalysisReport() {
             </div>
           </div>
         </div>
+
+        {/* Weak Areas Analysis */}
+        {weakAreas && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8 mb-8 border border-slate-200 dark:border-gray-700">
+            <h2 className="text-2xl font-bold mb-6 flex items-center">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" />
+              Focus Areas for Improvement
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Weak Topics */}
+              <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-400/30">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <BookOpen className="w-5 h-5 text-red-600 dark:text-red-400 mr-2" />
+                  Weakest Topics
+                </h3>
+                <ul className="space-y-3">
+                  {weakAreas.topics?.map(([topic, count], index) => (
+                    <li key={index} className="flex justify-between items-center">
+                      <span className="text-slate-700 dark:text-slate-300">{topic}</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">
+                        {count} incorrect {count === 1 ? 'answer' : 'answers'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Question Types */}
+              <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-400/30">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <Target className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-2" />
+                  Problematic Question Types
+                </h3>
+                <ul className="space-y-3">
+                  {weakAreas.types?.map(([type, count], index) => (
+                    <li key={index} className="flex justify-between items-center">
+                      <span className="text-slate-700 dark:text-slate-300">{type}</span>
+                      <span className="font-medium text-amber-600 dark:text-amber-400">
+                        {count} incorrect {count === 1 ? 'answer' : 'answers'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Time Analysis (if available) */}
+              {weakAreas.avgTime !== null && (
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-400/30">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2" />
+                    Time Management
+                  </h3>
+                  <p className="text-slate-700 dark:text-slate-300 mb-2">
+                    Average time spent on incorrect answers:
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {Math.round(weakAreas.avgTime)} seconds
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                    {weakAreas.avgTime > 30 ? 
+                      "You're spending too much time on difficult questions. Consider marking for review and moving on." :
+                      "Your time distribution seems balanced. Focus on accuracy."}
+                  </p>
+                </div>
+              )}
+
+              {/* Difficulty Analysis */}
+              <div className="p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-400/30">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+                  Difficulty Breakdown
+                </h3>
+                <ul className="space-y-3">
+                  {weakAreas.difficulties?.map(([difficulty, count], index) => (
+                    <li key={index} className="flex justify-between items-center">
+                      <span className="text-slate-700 dark:text-slate-300">{difficulty}</span>
+                      <span className="font-medium text-purple-600 dark:text-purple-400">
+                        {count} incorrect {count === 1 ? 'answer' : 'answers'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Individual Reports */}
         <div className="space-y-6">

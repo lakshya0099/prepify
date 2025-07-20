@@ -7,17 +7,33 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export default async function generateInterviewQuestions(domain, level, numQuestions) {
   try {
     const prompt = `Generate ${numQuestions} ${level} level interview questions on ${domain}.
+Each question must be a multiple choice question (MCQ) and must include:
+
+- id (number),
+- question (string),
+- options (array of 4 strings),
+- answer (string),
+- topic (string, sub-topic of ${domain}),
+- type ("MCQ"),
+- difficulty ("${level}")
+
 Return the response strictly in this JSON format:
+
 {
   "questions": [
     {
       "id": 1,
       "question": "question text",
       "options": ["option1", "option2", "option3", "option4"],
-      "answer": "correct option text"
+      "answer": "correct option text",
+      "topic": "specific topic name",
+      "type": "MCQ",
+      "difficulty": "${level}"
     }
   ]
 }`;
+
+
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
@@ -36,3 +52,5 @@ Return the response strictly in this JSON format:
     throw new Error(`Failed to generate questions: ${error.message}`);
   }
 }
+
+

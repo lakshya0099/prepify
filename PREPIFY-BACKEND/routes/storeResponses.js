@@ -10,26 +10,42 @@ router.post('/storeResponses', async (req, res) => {
     const db = await connectToDatabase();
     const collection = db.collection('responses');
 
-    // Store responses in the database
-    await collection.insertOne({ sessionId, answers, metadata, createdAt: new Date() });
+    // Enhance answers with full question data
+    const enhancedAnswers = answers.map(answer => ({
+      ...answer,
+      question: {  // Preserve all question metadata
+        id: answer.questionId,
+        text: answer.questionText,
+        topic: answer.topic,
+        type: answer.type,
+        difficulty: answer.difficulty,
+        options: answer.options
+      },
+      isCorrect: answer.isCorrect,
+      selectedOption: answer.selectedOption
+    }));
 
-    // Generate analysis report for the user
-    const correctAnswers = answers.filter(answer => answer.isCorrect).length;
-    const totalQuestions = answers.length;
-    const scorePercentage = (correctAnswers / totalQuestions) * 100;
+    await collection.insertOne({ 
+      sessionId, 
+      answers: enhancedAnswers, 
+      metadata, 
+      createdAt: new Date() 
+    });
 
-    const analysisReport = {
-      correctAnswers,
-      totalQuestions,
-      scorePercentage,
-      responses: answers,
-    };
+    const correctAnswers = enhancedAnswers.filter(answer => answer.isCorrect).length;
+    const totalQuestions = enhancedAnswers.length;
+    const scorePercentage = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
 
-    res.status(200).json({ message: 'Responses stored successfully', analysisReport });
+    res.status(200).json({ 
+      message: 'Responses stored successfully', 
+      analysisReport: {
+        correctAnswers,
+        totalQuestions,
+        scorePercentage
+      }
+    });
   } catch (error) {
     console.error("Error storing responses:", error);
     res.status(500).json({ message: 'Failed to store responses', error });
   }
-});
-
-export default router;
+});export default router;
