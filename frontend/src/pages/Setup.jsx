@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 
 const domains = [
-  "Java", "Python", "JavaScript", "C++", "Machine Learning",
+  "Custom","Java", "Python", "JavaScript", "C++", "Machine Learning",
   "Data Structures", "HTML/CSS", "Networking", "Operating Systems",
   "System Design", "Algorithms", "Database Management",
 ];
@@ -43,9 +43,10 @@ const difficultyColors = {
 };
 
 function Setup() {
-  const { theme, toggleTheme } = useTheme(); 
+  const { theme, toggleTheme } = useTheme();
   const sessionId = uuidv4();
   const [domain, setDomain] = useState("");
+  const [customDomain, setCustomDomain] = useState(""); // ✅ custom domain state
   const [questions, setQuestions] = useState(5);
   const [level, setLevel] = useState("easy");
   const [timer, setTimer] = useState(30);
@@ -54,17 +55,21 @@ function Setup() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!domain.trim()) return;
+    const finalDomain = domain === "Custom" ? customDomain : domain;
+    if (!finalDomain.trim()) return;
     navigate("/start", {
-      state: { domain, questions: Number(questions), level, timer: Number(timer), sessionId },
+      state: {
+        domain: finalDomain,
+        questions: Number(questions),
+        level,
+        timer: Number(timer),
+        sessionId,
+      },
     });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-slate-900 dark:via-gray-900 dark:to-slate-950 flex items-center justify-center p-4">
-      
-
-
       <div className="w-full max-w-lg">
         {/* Title */}
         <motion.div
@@ -73,7 +78,6 @@ function Setup() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="text-center mb-8"
         >
-
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Interview Setup
           </h1>
@@ -97,7 +101,6 @@ function Setup() {
             </CardHeader>
             <CardContent className="pt-0">
               <form onSubmit={handleSubmit} className="space-y-6">
-
                 {/* Domain */}
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -116,6 +119,16 @@ function Setup() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {domain === "Custom" && (
+                    <Input
+                      type="text"
+                      value={customDomain}
+                      onChange={(e) => setCustomDomain(e.target.value)}
+                      placeholder="Enter your custom domain"
+                      className="h-12 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                    />
+                  )}
                 </div>
 
                 {/* Questions & Timer */}
@@ -183,7 +196,7 @@ function Setup() {
                     Session Summary
                   </h3>
                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                    <p><strong>Domain:</strong> {domain || "Not selected"}</p>
+                    <p><strong>Domain:</strong> {domain === "Custom" ? customDomain || "Not entered" : domain || "Not selected"}</p>
                     <p><strong>Questions:</strong> {questions}</p>
                     <p><strong>Duration:</strong> {timer} minutes</p>
                     <p><strong>Difficulty:</strong> <span className={`${difficultyColors[level]} capitalize ml-1`}>{level}</span></p>
@@ -193,7 +206,7 @@ function Setup() {
                 {/* Submit */}
                 <Button
                   type="submit"
-                  disabled={!domain}
+                  disabled={!domain || (domain === "Custom" && !customDomain.trim())}
                   className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Play className="w-5 h-5" />

@@ -5,6 +5,8 @@ import cors from 'cors';
 import interviewRoutes from './routes/interviewRoutes.js';
 import storeResponsesRoutes from './routes/storeResponses.js';
 import analysisRoutes from './routes/analysis.js';
+import protectedRoutes from './routes/protected.js';
+import auth from './routes/Auth.js'
 
 
 
@@ -22,6 +24,8 @@ app.use('/api', storeResponsesRoutes);
 app.use('/api', analysisRoutes);
 
 app.use("/api/interview/", interviewRoutes);
+app.use("/api", protectedRoutes);
+app.use("api/auth",auth);
 
 app.get('/', (req, res) => {
   res.send('Prepify backend is running');
